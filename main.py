@@ -3,17 +3,14 @@ import sqlite3
 
 class Hub:
     def __init__(self):
-        userFile = "users.db"
-        confFile = "configurations.db"
-        loggedUsers = []
+        self.userFile = "users.db"
+        self.connUsers = sqlite3.connect(self.userFile)
+        self.loggedUsers = []
 
     def login(self, password, login):
         pass
 
     def createAccount(self, login, password):
-        pass
-
-    def connectDatabase(self):
         pass
 
     def startDevice(self):
@@ -30,9 +27,14 @@ class Hub:
 
     def restartHub(self):
         pass
-
 if __name__=="__main__":
     hub = Hub()
-    hub.connectDatabase()
+    c = hub.connUsers.cursor()
+
+    c.execute("SELECT * FROM users")
+    ans  = c.fetchall()
+    hub.connUsers.commit()
+    hub.connUsers.close()
+    print(ans)
     #while True:
     #    pass
