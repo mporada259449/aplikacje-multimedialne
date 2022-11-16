@@ -1,0 +1,14 @@
+PK(id)  name    password
+1       login   haslo
+2       login2  haslo2
+3       login3  haslo3
+.
+.
+
+usługa      powiązane   FK(id)
+telewizor   -           1
+konsola     telewizor   3
+netflix     telewizor   2
+.
+.
+
