@@ -5,10 +5,16 @@ PK(id)  name    password
 .
 .
 
-usługa      powiązane   FK(id)
-telewizor   -           1
-konsola     telewizor   3
-netflix     telewizor   2
+usługa      isdevcie   FK(id)
+telewizor   1           1
+konsola     1           3
+netflix     0           2
 .
 .
+
+APP
+usługa      conncected
+netflix     telewizor
+netflix     soundbar
+spotify     telewizor
 
