@@ -8,6 +8,7 @@ class Hub:
         self.c = self.connUsers.cursor()
         self.loggedUsers = []
         self.usedDevices = []
+        self.usedServices = []
 
     def login(self, password, login):
         self.c.execute("""
@@ -63,18 +64,63 @@ class Hub:
                 return False
             else:
                 #jeżeli konfiguracja istnieje
+                self.usedDevices.remove(device)
+                print(f"{device} is turned off")
+                self.connUsers.commit()
+                return True
+        else:
+            print("User not found")
+            return False
+                
+
+
+    def startService(self, service, login):
+        if login not in self.loggedUsers:
+            #niezalogowany
+            print("User is not logged")
+            return False
+        #zanlezienie id użytkownika
+        self.c.execute("SELECT id FROM users WHERE name==?",(login,))
+        userid = self.c.fetchone()
+        if len(userid)!=0:
+            #czy istnieje konfiguracja dla tego usera
+            self.c.execute("""
+                SELECT * FROM configuration
+                WHERE name==? AND id==?
+            """, (service, userid[0]))
+        else:
+            
+        
+
+
+    def stopDevice(self, device, login):
+        #jeśli nie jest uruchomione
+        if device not in self.usedDevices:
+            print("Device is not turned on")
+            return False
+        
+        self.c.execute("""SELECT id FROM users WHERE name==?""",(login,))
+        loginid = self.c.fetchall()
+        if len(loginid) != 0:
+            #znalezienie konfiguracji
+            self.c.execute("""SELECT * FROM configuration
+                                WHERE name==? AND user_id==?
+                            """,(device,loginid[0]))
+            #jeżeli konfiguracja nie istnieje
+            if len(self.c.fetchall())==0:
+                print("It is not valid configuration for this user")
+                return False
+            else:
+                #jeżeli konfiguracja istnieje
                 self.usedDevices.append(device)
                 print(f"{device} is turned on")
                 self.connUsers.commit()
                 return True
-                
+        else:
+            print("user not found")
+            return False
 
-
-    def startService(self):
-        pass
-
-    def stopDevice(self):
-        pass
+        
     
     def stopService(self):
         pass
