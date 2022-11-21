@@ -41,22 +41,45 @@ class Hub:
             return False 
 
     def startDevice(self, device, login):
+        #czy user jest zalogowany
+        if login not in self.loggedUsers:
+            print("User is not logged")
+            return False
+        #czy użądzenie nie jest używane
+        if device in self.usedDevices:
+            print("Device is used by another user")
+            return False
+
         self.c.execute("""SELECT id FROM users WHERE name==?""",(login,))
         loginid = self.c.fetchall()
-        self.c.execute("""SELECT * FROM configuration
-                            WHERE name==? AND user_id==?
-        """,(device,loginid[0][0]))
+        if len(loginid) != 0:
+            #znalezienie konfiguracji
+            self.c.execute("""SELECT * FROM configuration
+                                WHERE name==? AND user_id==?
+                            """,(device,loginid[0]))
+            #jeżeli konfiguracja nie istnieje
+            if len(self.c.fetchall())==0:
+                print("It is not valid configuration for this user")
+                return False
+            else:
+                #jeżeli konfiguracja istnieje
+                self.usedDevices.append(device)
+                print(f"{device} is turned on")
+                self.connUsers.commit()
+                return True
+                
 
-    def startApp(self):
+
+    def startService(self):
         pass
 
     def stopDevice(self):
         pass
     
-    def stopApp(self):
+    def stopService(self):
         pass
 
-    def addConf(self, username, conf, isDevice):
+    def addDevice(self, username, device):
         #jeżeli jest zalogowany
         if username in self.loggedUsers:
             #znajdź id
@@ -69,60 +92,73 @@ class Hub:
             self.c.execute("""
                 SELECT * FROM configuration
                 WHERE name==? AND user_id==?
-            """,(conf, userid[0]))
+            """,(device, userid[0]))
             #jeżeli nie istnieje to dodaj
             if self.c.fetchall() == []:
-                self.c.execute("INSERT INTO configuration VALUES(?,?,?)", (conf, isDevice, userid[0]))
+                self.c.execute("INSERT INTO configuration VALUES(?,?,?)", (device, 1, userid[0]))
                 self.connUsers.commit()
                 return True
             else:
                 #jeśli konfiguracja jest już zapisana
                 print("Configuration has been already added")
+                self.connUsers.commit()
                 return False
         else:
             #jeśli nie jesteś zalogowany
             print("You are not logged.")
+            self.connUsers.commit()
             return False
 
-
-    #def addApp(self, username, service):
-    #    #jeżeli jest zalogowany
-    #    if username in self.loggedUsers:
-    #        #znajdź id
-    #        self.c.execute("""
-    #            SELECT id FROM users
-    #            WHERE name==?
-    #        """,(username,))
-    #        userid = self.c.fetchone()
-    #        #znajdz czy istnieje konfiguracja
-    #        self.c.execute("""
-    #            SELECT * FROM configuration
-    #            WHERE name==? AND user_id==?
-    #        """,(service, userid[0]))
-    #        #jeżeli nie istnieje to dodaj
-    #        if self.c.fetchall() == []:
-    #            self.c.execute("INSERT INTO configuration VALUES(?,?,?)", (service, 0, userid[0]))
-    #            self.connUsers.commit()
-    #            return True
-    #        else:
-    #            #jeśli konfiguracja jest już zapisana
-    #            print("Service has been already added to configuration")
-    #            return False
-    #    else:
-    #        #jeśli nie jesteś zalogowany
-    #        print("You are not logged.")
-    #        return False
+    def addService(self, username, service):
+        #jeżeli jest zalogowany
+        if username in self.loggedUsers:
+            self.c.execute("""
+                SELECT * FROM services
+                WHERE name=?
+            """,(service,))
+            #jeżeli serwis nie istnieje 
+            if len(self.c.fetchall()) == 0:
+                print("Service doesn't exist")
+                self.connUsers.commit()
+                return False
+            #znajdź id
+            self.c.execute("""
+                SELECT id FROM users
+                WHERE name==?
+            """,(username,))
+            userid = self.c.fetchone()
+            #znajdz czy istnieje konfiguracja
+            self.c.execute("""
+                SELECT * FROM configuration
+                WHERE name==? AND user_id==?
+            """,(service, userid[0]))
+            #jeżeli nie istnieje to dodaj
+            if self.c.fetchall() == []:
+                self.c.execute("INSERT INTO configuration VALUES(?,?,?)", (service, 0, userid[0]))
+                self.connUsers.commit()
+                return True
+            else:
+                #jeśli konfiguracja jest już zapisana
+                print("Service has been already added to configuration")
+                self.connUsers.commit()
+                return False
+        else:
+            #jeśli nie jesteś zalogowany
+            print("You are not logged.")
+            self.connUsers.commit()
+            return False
 
     def restartHub(self):
         self.loggedUsers = []
+        self.usedDevices = []
 
     def powerOff(self):
         self.connUsers.close()
 
 if __name__=="__main__":
     hub = Hub()
-    hub.loggedUsers.append("jan")
-    print(hub.addConf(username="jan", conf="Netflix", isDevice=False))
+    hub.loggedUsers.append("xyzuser")
+    print(hub.addService(username="xyzuser", service="Netflix"))
     hub.c.execute("SELECT * FROM configuration")
     print(hub.c.fetchall())
     hub.powerOff()
