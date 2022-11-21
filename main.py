@@ -45,6 +45,7 @@ class Hub:
             self.connUsers.commit()
             return True
         else:
+            self.connUsers.commit()
             return False 
 
 
@@ -67,11 +68,11 @@ class Hub:
         #jeżeli konfiguracja nie istnieje
         if len(self.c.fetchall())==0:
             print("It is not valid configuration for this user")
+            self.connUsers.commit()
             return False
         else:
             #jeżeli konfiguracja istnieje
             self.usedDevices.append(device)
-            print(f"{device} is turned on")
             self.connUsers.commit()
             return True
     
@@ -81,6 +82,8 @@ class Hub:
             #niezalogowany
             print("User is not logged")
             return False
+        if service in self.usedServices:
+            print("Service is used by another user")
         #zanlezienie id użytkownika
         self.c.execute("SELECT id FROM users WHERE name==?",(login,))
         userid = self.c.fetchone()
@@ -89,6 +92,7 @@ class Hub:
             SELECT * FROM configuration
             WHERE name==? AND user_id==?
         """, (service, int(userid[0])))
+        #jeśli istnieje
         if len(self.c.fetchall())!=0:
             self.c.execute("""
                 SELECT device FROM services
@@ -96,14 +100,13 @@ class Hub:
             """, (service,))
             deviceList = [i[0] for i in self.c.fetchall()]
             for i in deviceList:
-                if i[0] in self.usedDevices:
+                if i in self.usedDevices:
                     print("Device is used by another user")
                     self.connUsers.commit()
                     return False
             self.usedServices.append(service)
             for i in deviceList:
                 self.usedDevices.append(i)
-            print(f"{service} is tured on")
             self.connUsers.commit()
             return True
                 
@@ -117,6 +120,7 @@ class Hub:
         #jeśli nie jest uruchomione
         if login not in self.loggedUsers:
             print("user is not logged")
+            return False
         if device not in self.usedDevices:
             print("Device is not turned on")
             return False
@@ -131,11 +135,11 @@ class Hub:
         #jeżeli konfiguracja nie istnieje
         if len(self.c.fetchall())==0:
             print("It is not valid configuration for this user")
+            self.connUsers.commit()
             return False
         else:
             #jeżeli konfiguracja istnieje
             self.usedDevices.remove(device)
-            print(f"{device} is turned off")
             self.connUsers.commit()
             return True
           
@@ -167,7 +171,6 @@ class Hub:
                     print(f"{i} has been already turned off")
             self.usedServices.remove(service)
             self.connUsers.commit()
-            print(f"{service} is turned off")
             return True
         else:
             print("There is no such service in user configuration")
@@ -249,6 +252,7 @@ class Hub:
     def restartHub(self):
         self.loggedUsers = []
         self.usedDevices = []
+        self.usedServices = []
 
 
     def powerOff(self):
@@ -257,20 +261,21 @@ class Hub:
 if __name__=="__main__":
     hub = Hub()
     currentuser= ""
+    net = "siec"
     while True:
         print("""1. Log in
-                 2. Create Account
-                 3. Change current user
-                 4. Add device to configuration
-                 5. Add service to configuration
-                 6. Turn on a device
-                 7 .Turn on a service
-                 8. Turn off a device
-                 9. Turn off a service
-                 10. Turn on the hub
-                 11. Reset the hub
+2. Create Account
+3. Change current user
+4. Add device to configuration
+5. Add service to configuration
+6. Turn on a device
+7 .Turn on a service
+8. Turn off a device
+9. Turn off a service
+10. Turn on the hub
+11. Reset the hub
         """)
-        ans = int(input("What do you want to do?: "))
+        ans = int(input(f"What do you want to do? (current user: {currentuser}): "))
         if ans==1:
             login = input("Login: ")
             password = input("Password: ")
@@ -281,23 +286,72 @@ if __name__=="__main__":
             else:
                 print("Can not sign up")
         elif ans==2:
-            pass
+            login = input("E-mail: ")
+            password = input("Password: ")
+            result = hub.createAccount(password=password, login=login, network=net)
+            if result:
+                print("Accout created")
+            else:
+                print("Can not create account")
         elif ans==3:
-            pass
+            login = input("Login: ")
+            if login not in hub.loggedUsers:
+                password = input("Password: ")
+                result = hub.login(password=password, login=login)
+                if result:
+                    currentuser=login
+                    print("You are now logged")
+                else:
+                    print("Can not sign up")
+            else:
+                currentuser = login
+                print("User changed")
+                
         elif ans==4:
-            pass
+            name = input("Device name: ")
+            result = hub.addDevice(username=currentuser, device=name)
+            if result:
+                print("Device added to configuration")
+            else:
+                print("Operation failure")
         elif ans==5:
-            pass
+            name = input("Service name: ")
+            result = hub.addService(username=currentuser, service=name)
+            if result:
+                print("Service added to configuration")
+            else:
+                print("Operation failure")
         elif ans==6:
-            pass
+            name = input("Device name: ")
+            result = hub.startDevice(device=name, login=currentuser)
+            if result:
+                print(f"{name} is turned on")
+            else:
+                print("Operation failure")
         elif ans==7:
-            pass
+            name = input("Service name: ")
+            result = hub.startService(service=name, login=currentuser)
+            if result:
+                print(f"{name} is tured on")
+            else:
+                print("Operation failure")
         elif ans==8:
-            pass
+            name = input("Device name: ")
+            result = hub.stopDevice(device=name, login=currentuser)
+            if result:
+                print(f"{name} is turned off")
+            else:
+                print("Operation failure")
         elif ans==9:
-            pass
+            name = input("Service name: ")
+            result = hub.stopService(login=currentuser, service=name)
+            if result:
+                print(f"{name} is turned off")
+            else:
+                print("Operation failure")
         elif ans==10:
             hub.powerOff()
+            break
         elif ans==11:
             hub.restartHub()
 
