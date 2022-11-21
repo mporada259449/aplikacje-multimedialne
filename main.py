@@ -1,6 +1,7 @@
 import sqlite3
 
 
+
 class Hub:
     def __init__(self):
         self.userFile = "users.db"
@@ -9,6 +10,8 @@ class Hub:
         self.loggedUsers = []
         self.usedDevices = []
         self.usedServices = []
+        self.network = "siec"
+
 
     def login(self, password, login):
         self.c.execute("""
@@ -24,8 +27,11 @@ class Hub:
             return True
         else:
             return False 
-        
-    def createAccount(self, login, password):
+
+
+    def createAccount(self, login, password, network):
+        if self.network != network:
+            return False
         self.c.execute("""
             SELECT name FROM users
             WHERE name==?
@@ -41,39 +47,35 @@ class Hub:
         else:
             return False 
 
+
     def startDevice(self, device, login):
         #czy user jest zalogowany
         if login not in self.loggedUsers:
             print("User is not logged")
             return False
-        #czy użądzenie nie jest używane
+        #czy urządzenie nie jest używane
         if device in self.usedDevices:
             print("Device is used by another user")
             return False
 
         self.c.execute("""SELECT id FROM users WHERE name==?""",(login,))
-        loginid = self.c.fetchall()
-        if len(loginid) != 0:
-            #znalezienie konfiguracji
-            self.c.execute("""SELECT * FROM configuration
-                                WHERE name==? AND user_id==?
-                            """,(device,loginid[0]))
-            #jeżeli konfiguracja nie istnieje
-            if len(self.c.fetchall())==0:
-                print("It is not valid configuration for this user")
-                return False
-            else:
-                #jeżeli konfiguracja istnieje
-                self.usedDevices.remove(device)
-                print(f"{device} is turned off")
-                self.connUsers.commit()
-                return True
-        else:
-            print("User not found")
+        loginid = self.c.fetchone()
+        #znalezienie konfiguracji
+        self.c.execute("""SELECT * FROM configuration
+                            WHERE name==? AND user_id==?
+                        """,(device,int(loginid[0])))
+        #jeżeli konfiguracja nie istnieje
+        if len(self.c.fetchall())==0:
+            print("It is not valid configuration for this user")
             return False
+        else:
+            #jeżeli konfiguracja istnieje
+            self.usedDevices.append(device)
+            print(f"{device} is turned on")
+            self.connUsers.commit()
+            return True
+    
                 
-
-
     def startService(self, service, login):
         if login not in self.loggedUsers:
             #niezalogowany
@@ -82,49 +84,97 @@ class Hub:
         #zanlezienie id użytkownika
         self.c.execute("SELECT id FROM users WHERE name==?",(login,))
         userid = self.c.fetchone()
-        if len(userid)!=0:
-            #czy istnieje konfiguracja dla tego usera
+        #czy istnieje konfiguracja dla tego usera
+        self.c.execute("""
+            SELECT * FROM configuration
+            WHERE name==? AND user_id==?
+        """, (service, int(userid[0])))
+        if len(self.c.fetchall())!=0:
             self.c.execute("""
-                SELECT * FROM configuration
-                WHERE name==? AND id==?
-            """, (service, userid[0]))
+                SELECT device FROM services
+                WHERE name==?
+            """, (service,))
+            deviceList = [i[0] for i in self.c.fetchall()]
+            for i in deviceList:
+                if i[0] in self.usedDevices:
+                    print("Device is used by another user")
+                    self.connUsers.commit()
+                    return False
+            self.usedServices.append(service)
+            for i in deviceList:
+                self.usedDevices.append(i)
+            print(f"{service} is tured on")
+            self.connUsers.commit()
+            return True
+                
         else:
-            
+            print("It is not valid configuration for this user")
+            self.connUsers.commit()
+            return False
         
-
 
     def stopDevice(self, device, login):
         #jeśli nie jest uruchomione
+        if login not in self.loggedUsers:
+            print("user is not logged")
         if device not in self.usedDevices:
             print("Device is not turned on")
             return False
         
         self.c.execute("""SELECT id FROM users WHERE name==?""",(login,))
-        loginid = self.c.fetchall()
-        if len(loginid) != 0:
-            #znalezienie konfiguracji
-            self.c.execute("""SELECT * FROM configuration
-                                WHERE name==? AND user_id==?
-                            """,(device,loginid[0]))
-            #jeżeli konfiguracja nie istnieje
-            if len(self.c.fetchall())==0:
-                print("It is not valid configuration for this user")
-                return False
-            else:
-                #jeżeli konfiguracja istnieje
-                self.usedDevices.append(device)
-                print(f"{device} is turned on")
-                self.connUsers.commit()
-                return True
+        loginid = self.c.fetchone()
+
+        #znalezienie konfiguracji
+        self.c.execute("""SELECT * FROM configuration
+                            WHERE name==? AND user_id==?
+                        """,(device,int(loginid[0])))
+        #jeżeli konfiguracja nie istnieje
+        if len(self.c.fetchall())==0:
+            print("It is not valid configuration for this user")
+            return False
         else:
-            print("user not found")
+            #jeżeli konfiguracja istnieje
+            self.usedDevices.remove(device)
+            print(f"{device} is turned off")
+            self.connUsers.commit()
+            return True
+          
+    
+    def stopService(self, login, service):
+        if login not in self.loggedUsers:
+            print("User is not logged")
+            return False
+        if service not in self.usedServices:
+            print("Service is not turned on")
+            return False
+
+        self.c.execute("""SELECT id FROM users WHERE name==?""",(login,))
+        userid = self.c.fetchone()
+        self.c.execute(
+            """SELECT * FROM configuration
+               WHERE name==? AND user_id==?
+            """, (service, int(userid[0])))
+        if len(self.c.fetchall()) != 0:
+            self.c.execute("""
+                SELECT device FROM services
+                WHERE name==?
+            """,(service,))
+            deviceList = [i[0] for i in self.c.fetchall()] 
+            for i in deviceList:
+                try:
+                    self.usedDevices.remove(i)
+                except ValueError:
+                    print(f"{i} has been already turned off")
+            self.usedServices.remove(service)
+            self.connUsers.commit()
+            print(f"{service} is turned off")
+            return True
+        else:
+            print("There is no such service in user configuration")
+            self.connUsers.commit()
             return False
 
         
-    
-    def stopService(self):
-        pass
-
     def addDevice(self, username, device):
         #jeżeli jest zalogowany
         if username in self.loggedUsers:
@@ -154,6 +204,7 @@ class Hub:
             print("You are not logged.")
             self.connUsers.commit()
             return False
+
 
     def addService(self, username, service):
         #jeżeli jest zalogowany
@@ -194,19 +245,59 @@ class Hub:
             self.connUsers.commit()
             return False
 
+
     def restartHub(self):
         self.loggedUsers = []
         self.usedDevices = []
+
 
     def powerOff(self):
         self.connUsers.close()
 
 if __name__=="__main__":
     hub = Hub()
-    hub.loggedUsers.append("xyzuser")
-    print(hub.addService(username="xyzuser", service="Netflix"))
-    hub.c.execute("SELECT * FROM configuration")
-    print(hub.c.fetchall())
-    hub.powerOff()
-    #while True:
-    #    pass
+    currentuser= ""
+    while True:
+        print("""1. Log in
+                 2. Create Account
+                 3. Change current user
+                 4. Add device to configuration
+                 5. Add service to configuration
+                 6. Turn on a device
+                 7 .Turn on a service
+                 8. Turn off a device
+                 9. Turn off a service
+                 10. Turn on the hub
+                 11. Reset the hub
+        """)
+        ans = int(input("What do you want to do?: "))
+        if ans==1:
+            login = input("Login: ")
+            password = input("Password: ")
+            result = hub.login(password=password, login=login)
+            if result:
+                currentuser=login
+                print("You are now logged")
+            else:
+                print("Can not sign up")
+        elif ans==2:
+            pass
+        elif ans==3:
+            pass
+        elif ans==4:
+            pass
+        elif ans==5:
+            pass
+        elif ans==6:
+            pass
+        elif ans==7:
+            pass
+        elif ans==8:
+            pass
+        elif ans==9:
+            pass
+        elif ans==10:
+            hub.powerOff()
+        elif ans==11:
+            hub.restartHub()
+

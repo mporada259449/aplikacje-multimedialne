@@ -5,16 +5,19 @@ PK(id)  name    password
 .
 .
 
-usługa      isdevcie   FK(id)
+usługa      isdevcie   FK(user_id)
 telewizor   1           1
 konsola     1           3
 netflix     0           2
 .
 .
 
-APP
+services
 usługa      conncected
 netflix     telewizor
 netflix     soundbar
 spotify     telewizor
+.
+.
+.
 
