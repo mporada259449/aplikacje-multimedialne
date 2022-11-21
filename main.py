@@ -275,7 +275,12 @@ if __name__=="__main__":
 10. Turn on the hub
 11. Reset the hub
         """)
-        ans = int(input(f"What do you want to do? (current user: {currentuser}): "))
+        try:
+            ans = int(input(f"What do you want to do? (current user: {currentuser}): "))
+        except ValueError:
+            print("It's not a number")
+            continue
+            
         if ans==1:
             login = input("Login: ")
             password = input("Password: ")
