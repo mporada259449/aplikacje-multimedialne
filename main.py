@@ -4,6 +4,7 @@ import sqlite3
 
 class Hub:
     def __init__(self):
+        #aby pracować na wcześniej utworzonych danych należy uruchomić skrypt createData.py
         self.userFile = "users.db"
         self.connUsers = sqlite3.connect(self.userFile)
         self.c = self.connUsers.cursor()
@@ -14,42 +15,56 @@ class Hub:
 
 
     def login(self, password, login):
+        #funkcja logowania do systemu
+        #znalezienie hasła użytkownika o podanym loginie
         self.c.execute("""
             SELECT password FROM users
             WHERE name==?
         """, (login,))
         ans = self.c.fetchall()
         self.connUsers.commit()
+        #czy znalezio użytkownika
         if ans == []:
+            #nie znaleziono użytkownika
             return False
         elif password==ans[0][0]:
+            #hasło prawidłow
             self.loggedUsers.append(login)
             return True
         else:
+            #hasło nieprawidłowe
             return False 
 
 
     def createAccount(self, login, password, network):
+        #funkcja zakładania konta
+        #czy klient wybrał tą samą sieć w której jest centrum multimedialne
         if self.network != network:
+            #nieprawidłowa sieć
             return False
+        #znalezienie użytkownika o tym samym loginie
         self.c.execute("""
             SELECT name FROM users
             WHERE name==?
         """,(login,))
         ans = self.c.fetchall()
         self.connUsers.commit()
+        #czy uzytkownik już istnieje
         if ans == []:
+            #jeśli nie dodaj go
             self.c.execute("""
                 INSERT INTO users(name, password) VALUES(?,?)
             """,(login, password))
             self.connUsers.commit()
             return True
         else:
+            #jeśli istnieje zwróć False
             self.connUsers.commit()
             return False 
 
 
     def startDevice(self, device, login):
+        #funkcja włączania urządzenia
         #czy user jest zalogowany
         if login not in self.loggedUsers:
             print("User is not logged")
@@ -58,7 +73,7 @@ class Hub:
         if device in self.usedDevices:
             print("Device is used by another user")
             return False
-
+        #znalezienie indeksu usera
         self.c.execute("""SELECT id FROM users WHERE name==?""",(login,))
         loginid = self.c.fetchone()
         #znalezienie konfiguracji
@@ -78,10 +93,13 @@ class Hub:
     
                 
     def startService(self, service, login):
+        #funkcja włączania serwisu
+        #czy użytkownik jest zalogowany
         if login not in self.loggedUsers:
             #niezalogowany
             print("User is not logged")
             return False
+        #czy usługa nie jest już używana
         if service in self.usedServices:
             print("Service is used by another user")
         #zanlezienie id użytkownika
@@ -94,37 +112,45 @@ class Hub:
         """, (service, int(userid[0])))
         #jeśli istnieje
         if len(self.c.fetchall())!=0:
+            #znalezienie wszystkich potrzebnych urządzeń
             self.c.execute("""
                 SELECT device FROM services
                 WHERE name==?
             """, (service,))
             deviceList = [i[0] for i in self.c.fetchall()]
+            #sprawdzenie czy urządzenia nie są użytkowane
             for i in deviceList:
                 if i in self.usedDevices:
+                    #jeśli jest użytkowane zwróć False
                     print("Device is used by another user")
                     self.connUsers.commit()
                     return False
+            #dodanie serwisu do aktualnie używanych
             self.usedServices.append(service)
+            #dodanie urządzeń do aktualnie używanych
             for i in deviceList:
                 self.usedDevices.append(i)
             self.connUsers.commit()
             return True
                 
         else:
+            #jeśli konfiguracja nie istnieje
             print("It is not valid configuration for this user")
             self.connUsers.commit()
             return False
         
 
     def stopDevice(self, device, login):
-        #jeśli nie jest uruchomione
+        #funkcja wyłączania urządznia
+        #czy jest zalogowany
         if login not in self.loggedUsers:
             print("user is not logged")
             return False
+        #czy jest uruchomine
         if device not in self.usedDevices:
             print("Device is not turned on")
             return False
-        
+        #znalezienie id usera
         self.c.execute("""SELECT id FROM users WHERE name==?""",(login,))
         loginid = self.c.fetchone()
 
@@ -139,46 +165,57 @@ class Hub:
             return False
         else:
             #jeżeli konfiguracja istnieje
+            #usunięcie z działających urządzeń
             self.usedDevices.remove(device)
             self.connUsers.commit()
             return True
           
     
     def stopService(self, login, service):
+        #funkcja wyłączania serwisu
+        #czy user jest zalogowany
         if login not in self.loggedUsers:
             print("User is not logged")
             return False
+        #czy serwis jest włączony
         if service not in self.usedServices:
             print("Service is not turned on")
             return False
-
+        #znalezienie id usera
         self.c.execute("""SELECT id FROM users WHERE name==?""",(login,))
         userid = self.c.fetchone()
+        #znalezienie konfiguracji usera
         self.c.execute(
             """SELECT * FROM configuration
                WHERE name==? AND user_id==?
             """, (service, int(userid[0])))
+        #jeśli ma dostęp do serwisu
         if len(self.c.fetchall()) != 0:
+            #znalezienie wszystkich zależnych urządzeń
             self.c.execute("""
                 SELECT device FROM services
                 WHERE name==?
             """,(service,))
             deviceList = [i[0] for i in self.c.fetchall()] 
+            #wyłączenie wszystkich urządzeń
             for i in deviceList:
                 try:
                     self.usedDevices.remove(i)
                 except ValueError:
                     print(f"{i} has been already turned off")
+            #wyłączenie serwisu
             self.usedServices.remove(service)
             self.connUsers.commit()
             return True
         else:
+            #jeśli nie znaleziono odpowiedniej konfiguracji zwróć fałsz
             print("There is no such service in user configuration")
             self.connUsers.commit()
             return False
 
         
     def addDevice(self, username, device):
+        #funkcja dodawanie urządzenia do konfiguracji użytkownika
         #jeżeli jest zalogowany
         if username in self.loggedUsers:
             #znajdź id
@@ -210,8 +247,10 @@ class Hub:
 
 
     def addService(self, username, service):
+        #funkcja dodawania serwisu do konfiguracji użytkownika
         #jeżeli jest zalogowany
         if username in self.loggedUsers:
+            #znajdz serwis ze znanych serwisów
             self.c.execute("""
                 SELECT * FROM services
                 WHERE name=?
@@ -221,7 +260,7 @@ class Hub:
                 print("Service doesn't exist")
                 self.connUsers.commit()
                 return False
-            #znajdź id
+            #znajdź id usera
             self.c.execute("""
                 SELECT id FROM users
                 WHERE name==?
@@ -250,12 +289,15 @@ class Hub:
 
 
     def restartHub(self):
+        #funkcja restartu centrum multimedialnego
+        #wylogowanie użytkowników i zerwanie połączenia ze wszystkimi serwisami i użądzeniami
         self.loggedUsers = []
         self.usedDevices = []
         self.usedServices = []
 
 
     def powerOff(self):
+        #wyłączenie centrum multimedialnego
         self.connUsers.close()
 
 if __name__=="__main__":
