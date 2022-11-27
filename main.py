@@ -1,5 +1,5 @@
 import sqlite3
-
+import hashlib
 
 
 class Hub:
@@ -23,11 +23,14 @@ class Hub:
         """, (login,))
         ans = self.c.fetchall()
         self.connUsers.commit()
+        hash = hashlib.sha256()
+        passbytes = password.encode()
+        hash.update(passbytes)
         #czy znalezio użytkownika
         if ans == []:
             #nie znaleziono użytkownika
             return False
-        elif password==ans[0][0]:
+        elif hash.hexdigest()==ans[0][0]:
             #hasło prawidłow
             self.loggedUsers.append(login)
             return True
@@ -52,9 +55,12 @@ class Hub:
         #czy uzytkownik już istnieje
         if ans == []:
             #jeśli nie dodaj go
+            hash = hashlib.sha256()
+            passbytes = password.encode()
+            hash.update(passbytes)
             self.c.execute("""
                 INSERT INTO users(name, password) VALUES(?,?)
-            """,(login, password))
+            """,(login, hash.hexdigest()))
             self.connUsers.commit()
             return True
         else:
@@ -314,7 +320,7 @@ if __name__=="__main__":
 7 .Turn on a service
 8. Turn off a device
 9. Turn off a service
-10. Turn on the hub
+10. Turn off the hub
 11. Reset the hub
         """)
         try:

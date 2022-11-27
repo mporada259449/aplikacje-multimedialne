@@ -1,8 +1,12 @@
 import sqlite3
-
+import hashlib
 conn = sqlite3.connect("users.db")
 
-
+def hashing(s):
+    hash =  hashlib.sha256()
+    sbytes = s.encode()
+    hash.update(sbytes)
+    return hash.hexdigest()
 c = conn.cursor()
 #stworzenie tabeli users i wpisanie przykładowych danych
 c.execute("""
@@ -12,7 +16,7 @@ c.execute("""
         password TEXT
     )
     """)
-myusers = [('jan@gmail.com', 'pass'), ('xyzuser@gmail.com','strongpass'), ('user1@gmail.com', 'haslo'), ('app@gmail.com', '1234')]
+myusers = [('jan@gmail.com', hashing('pass')), ('xyzuser@gmail.com',hashing('strongpass')), ('user1@gmail.com', hashing('haslo')), ('app@gmail.com', hashing('1234'))]
 c.executemany("INSERT INTO users(name, password) VALUES(?,?)", myusers)
 conn.commit()
 
