@@ -48,5 +48,14 @@ myservices = [("Netflix", "telewizor"), ("Netflix", "soundbar"), ("Gra PS5", "te
             ("Eurosport", "telewizor"), ("Eurosport", "soundbar"), ("Playlista", "JBL Speaker")]
 c.executemany("INSERT INTO services VALUES(?,?)", myservices)
 
+c.execute("""
+    CREATE TABLE specialconf(
+        name TEXT,
+        device TEXT,
+        user_id INTAGER,
+        FOREIGN KEY(user_id) REFERENCES users(id)
+    )
+""")
+
 conn.commit()
 conn.close()

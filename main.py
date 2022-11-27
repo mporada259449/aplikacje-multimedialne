@@ -11,6 +11,7 @@ class Hub:
         self.loggedUsers = []
         self.usedDevices = []
         self.usedServices = []
+        self.usedSpecial = []
         self.network = "siec"
 
 
@@ -23,6 +24,7 @@ class Hub:
         """, (login,))
         ans = self.c.fetchall()
         self.connUsers.commit()
+        #stworzenie hasha z hasła
         hash = hashlib.sha256()
         passbytes = password.encode()
         hash.update(passbytes)
@@ -31,7 +33,7 @@ class Hub:
             #nie znaleziono użytkownika
             return False
         elif hash.hexdigest()==ans[0][0]:
-            #hasło prawidłow
+            #hasło prawidłowe
             self.loggedUsers.append(login)
             return True
         else:
@@ -108,6 +110,7 @@ class Hub:
         #czy usługa nie jest już używana
         if service in self.usedServices:
             print("Service is used by another user")
+            return False
         #zanlezienie id użytkownika
         self.c.execute("SELECT id FROM users WHERE name==?",(login,))
         userid = self.c.fetchone()
@@ -294,11 +297,108 @@ class Hub:
             return False
 
 
+    def addSpecialConf(self, username, name, devices):
+        #dodawanie kofiguracji kilku urządzeń
+        #czy użytkownik jest zalogowany
+        if username not in self.loggedUsers:
+            print("User is not logged")
+            return False
+
+        self.c.execute("""
+                SELECT id FROM users
+                WHERE name==?
+            """,(username,))
+        userid = self.c.fetchone()
+            #znajdz czy istnieje konfiguracja
+        self.c.execute("""
+                SELECT * FROM specialconf
+                WHERE name==? AND user_id==?
+        """,(name, userid[0]))
+        if self.c.fetchall() == []:
+            config = [(name, devicename, userid[0]) for devicename in devices]
+            self.c.executemany("INSERT INTO specialconf VALUES(?,?,?)", config) 
+            self.connUsers.commit()
+            return True
+        else:
+            print("Configuration has been already added")
+            return False
+        
+
+    def startSpecialConf(self, username, name):
+        #czy jest zalogowany
+        if username not in self.loggedUsers:
+            print("User not logged")
+            return False
+        #czy nie jest już uruchomiona
+        if name in self.usedSpecial:
+            print("Service is turned on")
+            return False        
+        #znalezienie id usera
+        self.c.execute("SELECT id FROM users WHERE name=?", (username,))
+        userid = self.c.fetchone()
+        #znalezienie wszystkich potrzebnych urządzeń
+        self.c.execute("SELECT device FROM specialconf WHERE name=? AND user_id=?",(name, userid[0]))
+        devices = self.c.fetchall()
+        #jeżeli taka konfiguracja istnieje
+        if devices != []:
+            #włączenie urządzeń
+            for i in devices:
+                if i[0] in self.usedDevices:
+                    print("Device is used by another user")
+                    return False
+            #dodanie konfiguracji i urządzeń do używanych
+            self.usedSpecial.append(name)
+            for i in devices:
+                self.usedDevices.append(i[0])
+            self.connUsers.commit()
+            return True
+        else:
+            #nie ma takiej konfiguracji
+            print("Configuration doesn't exist")
+            self.connUsers.commit()
+            return False  
+
+
+    def stopSpecialConf(self, username, name):
+        #czy user jest zalogowany
+        if username not in self.loggedUsers:
+            print("User is not logged")
+            return False
+        #czy konfiguracja jest włączona
+        if name not in self.usedSpecial:
+            print("Configuration is not turned on")
+            return False
+        #znalezienie id usera
+        self.c.execute("SELECT id FROM users WHERE name=?",(username,))
+        userid = self.c.fetchone()
+        #znalezienie wszystkich urządzeń których dotyczy konfiguracja
+        self.c.execute("SELECT device FROM specialconf WHERE name=? AND user_id=?",(name, userid[0]))
+        devices = self.c.fetchall()
+        #czy urządzenia istnieją
+        if len(devices)!=0:
+            #wyłączenie urządzeń
+            for i in devices:
+                try:
+                    self.usedDevices.remove(i[0])
+                except:
+                    print(f"{i[0]} has been turned off")
+            #wyłączenie kofiguracji specjalnej
+            self.usedSpecial.remove(name)
+            self.connUsers.commit()
+            return True
+        else:
+            #brak urządzeń do wyłączenia
+            print("There is no such configuration for this user")
+            self.connUsers.commit()
+            return False
+        
+
     def restartHub(self):
         #funkcja restartu centrum multimedialnego
         #wylogowanie użytkowników i zerwanie połączenia ze wszystkimi serwisami i użądzeniami
         self.loggedUsers = []
         self.usedDevices = []
+        self.usedServices = []
         self.usedServices = []
 
 
@@ -316,12 +416,15 @@ if __name__=="__main__":
 3. Change current user
 4. Add device to configuration
 5. Add service to configuration
-6. Turn on a device
-7 .Turn on a service
-8. Turn off a device
-9. Turn off a service
-10. Turn off the hub
-11. Reset the hub
+6. Add special configuration
+7. Turn on a device
+8 .Turn on a service
+9. Turn on a special configuration
+10. Turn off a device
+11. Turn off a service
+12. Turn off a special configuration
+13. Turn off the hub
+14. Reset the hub
         """)
         try:
             ans = int(input(f"What do you want to do? (current user: {currentuser}): "))
@@ -367,6 +470,7 @@ if __name__=="__main__":
                 print("Device added to configuration")
             else:
                 print("Operation failure")
+
         elif ans==5:
             name = input("Service name: ")
             result = hub.addService(username=currentuser, service=name)
@@ -374,37 +478,69 @@ if __name__=="__main__":
                 print("Service added to configuration")
             else:
                 print("Operation failure")
+
         elif ans==6:
+            name = input("Configuration name: ")
+            x = input("Device name(press N to end): ")
+            devices = []
+            while x!="N":
+                devices.append(x)
+                x = input("Device name(press N to end): ")
+
+            result = hub.addSpecialConf(username=currentuser, name=name, devices=devices)
+            if result:
+                print("Configuration created")
+            else:
+                print("Operation failure")
+
+        elif ans==7:
             name = input("Device name: ")
             result = hub.startDevice(device=name, login=currentuser)
             if result:
                 print(f"{name} is turned on")
             else:
                 print("Operation failure")
-        elif ans==7:
+        elif ans==8:
             name = input("Service name: ")
             result = hub.startService(service=name, login=currentuser)
             if result:
                 print(f"{name} is tured on")
             else:
                 print("Operation failure")
-        elif ans==8:
+
+        elif ans==9:
+            name = input("Configuration name: ")
+            result = hub.startSpecialConf(username=currentuser, name=name)
+            if result:
+                print(f"{name} is turned on")
+            else:
+                print("Operation failure")
+
+        elif ans==10:
             name = input("Device name: ")
             result = hub.stopDevice(device=name, login=currentuser)
             if result:
                 print(f"{name} is turned off")
             else:
                 print("Operation failure")
-        elif ans==9:
+        elif ans==11:
             name = input("Service name: ")
             result = hub.stopService(login=currentuser, service=name)
             if result:
                 print(f"{name} is turned off")
             else:
                 print("Operation failure")
-        elif ans==10:
+        elif ans==12:
+            name = input("Configuration name: ")
+            result = hub.stopSpecialConf(username=currentuser, name=name)
+            if result:
+                print(f"{name} is turned off")
+            else:
+                print("Operation failure")
+        elif ans==13:
             hub.powerOff()
             break
-        elif ans==11:
+        elif ans==14:
             hub.restartHub()
+    
 
