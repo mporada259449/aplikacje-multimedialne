@@ -1,6 +1,6 @@
 import sqlite3
 import hashlib
-
+from os import system
 
 class Hub:
     def __init__(self):
@@ -436,6 +436,7 @@ if __name__=="__main__":
             login = input("Login: ")
             password = input("Password: ")
             result = hub.login(password=password, login=login)
+            system("cls")
             if result:
                 currentuser=login
                 print("You are now logged")
@@ -445,6 +446,7 @@ if __name__=="__main__":
             login = input("E-mail: ")
             password = input("Password: ")
             result = hub.createAccount(password=password, login=login, network=net)
+            system("cls")
             if result:
                 print("Accout created")
             else:
@@ -454,18 +456,21 @@ if __name__=="__main__":
             if login not in hub.loggedUsers:
                 password = input("Password: ")
                 result = hub.login(password=password, login=login)
+                system("cls")
                 if result:
                     currentuser=login
                     print("You are now logged")
                 else:
                     print("Can not sign up")
             else:
+                system("cls")
                 currentuser = login
                 print("User changed")
                 
         elif ans==4:
             name = input("Device name: ")
             result = hub.addDevice(username=currentuser, device=name)
+            system("cls")
             if result:
                 print("Device added to configuration")
             else:
@@ -474,6 +479,7 @@ if __name__=="__main__":
         elif ans==5:
             name = input("Service name: ")
             result = hub.addService(username=currentuser, service=name)
+            system("cls")
             if result:
                 print("Service added to configuration")
             else:
@@ -488,6 +494,7 @@ if __name__=="__main__":
                 x = input("Device name(press N to end): ")
 
             result = hub.addSpecialConf(username=currentuser, name=name, devices=devices)
+            system("cls")
             if result:
                 print("Configuration created")
             else:
@@ -496,6 +503,7 @@ if __name__=="__main__":
         elif ans==7:
             name = input("Device name: ")
             result = hub.startDevice(device=name, login=currentuser)
+            system("cls")
             if result:
                 print(f"{name} is turned on")
             else:
@@ -503,6 +511,7 @@ if __name__=="__main__":
         elif ans==8:
             name = input("Service name: ")
             result = hub.startService(service=name, login=currentuser)
+            system("cls")
             if result:
                 print(f"{name} is tured on")
             else:
@@ -511,6 +520,7 @@ if __name__=="__main__":
         elif ans==9:
             name = input("Configuration name: ")
             result = hub.startSpecialConf(username=currentuser, name=name)
+            system("cls")
             if result:
                 print(f"{name} is turned on")
             else:
@@ -519,6 +529,7 @@ if __name__=="__main__":
         elif ans==10:
             name = input("Device name: ")
             result = hub.stopDevice(device=name, login=currentuser)
+            system("cls")
             if result:
                 print(f"{name} is turned off")
             else:
@@ -526,6 +537,7 @@ if __name__=="__main__":
         elif ans==11:
             name = input("Service name: ")
             result = hub.stopService(login=currentuser, service=name)
+            system("cls")
             if result:
                 print(f"{name} is turned off")
             else:
@@ -533,6 +545,7 @@ if __name__=="__main__":
         elif ans==12:
             name = input("Configuration name: ")
             result = hub.stopSpecialConf(username=currentuser, name=name)
+            system("cls")
             if result:
                 print(f"{name} is turned off")
             else:
@@ -542,5 +555,7 @@ if __name__=="__main__":
             break
         elif ans==14:
             hub.restartHub()
+            currentuser = ""
+            system("cls")
     
 
